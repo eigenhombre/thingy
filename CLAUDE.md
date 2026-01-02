@@ -1,2 +1,3 @@
 - when changes have been made to the codebase, if the "cargo run -- ..." instance of the command succeeded, then "make install".
 - Always rerun "make readme" when the Rust code is successfully updated / built.
+- README.md is generated from README-raw.md. Always edit README-raw.md, never README.md.

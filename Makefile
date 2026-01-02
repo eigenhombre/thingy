@@ -17,14 +17,8 @@ clean:
 
 .PHONY: readme
 readme: target/release/thingy
-	@echo "Updating README.md with current help output..."
+	@echo "Generating README.md from README-raw.md..."
 	@./target/release/thingy help > .help.tmp 2>&1
-	@grep -n "<!-- BEGIN AUTO-GENERATED -->" README.md | cut -d: -f1 > .line1.tmp
-	@grep -n "<!-- END AUTO-GENERATED -->" README.md | cut -d: -f1 > .line2.tmp
-	@head -n $$(cat .line1.tmp) README.md > README.md.tmp
-	@cat .help.tmp >> README.md.tmp
-	@echo "" >> README.md.tmp
-	@tail -n +$$(cat .line2.tmp) README.md >> README.md.tmp
-	@mv README.md.tmp README.md
-	@rm -f .help.tmp .line1.tmp .line2.tmp
-	@echo "README.md updated"
+	@awk '/\{\{USAGE\}\}/ { print "```"; while(getline line < ".help.tmp") print line; print "```"; next } { print }' README-raw.md > README.md
+	@rm -f .help.tmp
+	@echo "README.md generated"
