@@ -2,6 +2,9 @@
 
 A command-line tool for managing Things3 todos without opening the app.
 
+Heavily vibe-coded with Claude, though I do use this in daily use
+(Jan., 2026).
+
 ## Installation
 
 ```bash
