@@ -18,6 +18,7 @@ BINDIR=/usr/local/bin make install
 
 ## Usage
 
+```
 <!-- BEGIN AUTO-GENERATED -->
 Usage: thingy [command] [args]
 
@@ -42,7 +43,9 @@ Commands:
   next [list] <num>     Tag todo as on-deck (defaults to today)
   next                  Show the on-deck todo
   ondeck                Alias for next
+
 <!-- END AUTO-GENERATED -->
+```
 
 ## Development
 

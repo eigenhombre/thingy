@@ -23,6 +23,7 @@ readme: target/release/thingy
 	@grep -n "<!-- END AUTO-GENERATED -->" README.md | cut -d: -f1 > .line2.tmp
 	@head -n $$(cat .line1.tmp) README.md > README.md.tmp
 	@cat .help.tmp >> README.md.tmp
+	@echo "" >> README.md.tmp
 	@tail -n +$$(cat .line2.tmp) README.md >> README.md.tmp
 	@mv README.md.tmp README.md
 	@rm -f .help.tmp .line1.tmp .line2.tmp
