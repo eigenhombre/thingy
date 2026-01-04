@@ -23,6 +23,16 @@ BINDIR=/usr/local/bin make install
 
 {{USAGE}}
 
+### Interactive Mode
+
+`thingy i` or `thingy interactive` enters an interactive mode with keyboard navigation:
+
+- **↑/↓** - Navigate between todos
+- **Space** - Toggle completion status
+- **/** - Toggle in-progress tag
+- **r** - Refresh from Things3
+- **q/Esc** - Exit
+
 ## Development
 
 Update this README's usage section:

@@ -1,6 +1,7 @@
 # thingy
 
-A command-line tool for managing Things3 todos without opening the app.
+A command-line tool for managing Things todos without opening the app.
+Requires Things 3.
 
 Heavily vibe-coded with Claude, though I do use this in daily use
 (Jan., 2026).
@@ -49,6 +50,16 @@ Commands:
   i                     Alias for interactive
 ```
 
+### Interactive Mode
+
+`thingy i` or `thingy interactive` enters an interactive mode with keyboard navigation:
+
+- **↑/↓** - Navigate between todos
+- **Space** - Toggle completion status
+- **/** - Toggle in-progress tag
+- **r** - Refresh from Things
+- **q/Esc** - Exit
+
 ## Development
 
 Update this README's usage section:
@@ -61,7 +72,7 @@ make readme
 1. Enhance string escaping to handle newlines, carriage returns, and other special characters
 2. Extract AppleScript generation into helper functions to reduce duplication
 3. Create reusable functions for tag manipulation operations
-4. Add validation that Things3 is installed and available before operations
+4. Add validation that Things is installed and available before operations
 5. Add unit tests for parsing and validation logic
-6. Improve error messages when Things3 is unavailable
+6. Improve error messages when Things is unavailable
 7. Refactor tag filtering logic to eliminate duplication

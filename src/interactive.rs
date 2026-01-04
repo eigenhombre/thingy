@@ -126,6 +126,77 @@ end tell
     run_applescript(&script).map(|_| ())
 }
 
+fn toggle_inprogress_tag(todo: &Todo) -> Result<String, String> {
+    let has_tag = todo.tags.split(", ").any(|t| t == "in-progress");
+
+    let script = if has_tag {
+        format!(
+            r#"
+tell application "Things3"
+    set listToQuery to list "Today"
+    set allTodos to to dos of listToQuery
+    if (count of allTodos) < {} then
+        error "Todo index {} is out of range"
+    end if
+    set todoToUpdate to item {} of allTodos
+
+    set currentTags to tag names of todoToUpdate
+    set oldDelimiters to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ", "
+    set tagList to text items of currentTags
+    set newTagList to {{}}
+    repeat with i from 1 to (count of tagList)
+        set tagItem to (item i of tagList) as text
+        if tagItem is not "in-progress" then
+            set end of newTagList to tagItem
+        end if
+    end repeat
+    if (count of newTagList) > 0 then
+        set AppleScript's text item delimiters to ", "
+        set tag names of todoToUpdate to (newTagList as text)
+    else
+        set tag names of todoToUpdate to ""
+    end if
+    set AppleScript's text item delimiters to oldDelimiters
+    return tag names of todoToUpdate
+end tell
+"#,
+            todo.index, todo.index, todo.index
+        )
+    } else {
+        format!(
+            r#"
+tell application "Things3"
+    set listToQuery to list "Today"
+    set allTodos to to dos of listToQuery
+    if (count of allTodos) < {} then
+        error "Todo index {} is out of range"
+    end if
+    set todoToUpdate to item {} of allTodos
+
+    set inProgressTag to missing value
+    try
+        set inProgressTag to tag "in-progress"
+    on error
+        set inProgressTag to make new tag with properties {{name:"in-progress"}}
+    end try
+
+    set currentTags to tag names of todoToUpdate
+    if currentTags is "" then
+        set tag names of todoToUpdate to "in-progress"
+    else if currentTags does not contain "in-progress" then
+        set tag names of todoToUpdate to currentTags & ", in-progress"
+    end if
+    return tag names of todoToUpdate
+end tell
+"#,
+            todo.index, todo.index, todo.index
+        )
+    };
+
+    run_applescript(&script)
+}
+
 fn render_todo_line(todo: &Todo, is_selected: bool) -> String {
     let prefix = if is_selected { "> " } else { "  " };
     let todo_text = if !todo.tags.is_empty() {
@@ -141,16 +212,17 @@ fn render_todo_line(todo: &Todo, is_selected: bool) -> String {
     }
 }
 
-fn redraw_list(todos: &[Todo], selected_idx: usize) {
+fn redraw_list(todos: &[Todo], selected_idx: usize, displayed_count: usize) {
     let mut stdout = io::stdout();
 
-    // Move cursor up to the start of the list
-    stdout.execute(cursor::MoveUp(todos.len() as u16)).unwrap();
+    // Move cursor up by the number of items currently displayed
+    stdout.execute(cursor::MoveUp(displayed_count as u16)).unwrap();
+
+    // Clear from cursor down to remove old list
+    stdout.execute(terminal::Clear(terminal::ClearType::FromCursorDown)).unwrap();
 
     // Redraw each line
     for (idx, todo) in todos.iter().enumerate() {
-        stdout.execute(cursor::MoveToColumn(0)).unwrap();
-        stdout.execute(terminal::Clear(terminal::ClearType::UntilNewLine)).unwrap();
         let line = render_todo_line(todo, idx == selected_idx);
         print!("{}\r\n", line);
     }
@@ -178,6 +250,8 @@ pub fn interactive_mode() {
         println!("{}", line);
     }
 
+    let mut displayed_count = todos.len();
+
     if let Err(e) = terminal::enable_raw_mode() {
         eprintln!("Error enabling raw mode: {}", e);
         return;
@@ -201,13 +275,13 @@ pub fn interactive_mode() {
                 KeyCode::Up => {
                     if selected_idx > 0 {
                         selected_idx -= 1;
-                        redraw_list(&todos, selected_idx);
+                        redraw_list(&todos, selected_idx, displayed_count);
                     }
                 }
                 KeyCode::Down => {
                     if selected_idx < todos.len() - 1 {
                         selected_idx += 1;
-                        redraw_list(&todos, selected_idx);
+                        redraw_list(&todos, selected_idx, displayed_count);
                     }
                 }
                 KeyCode::Char(' ') => {
@@ -219,7 +293,44 @@ pub fn interactive_mode() {
                     }
 
                     todos[selected_idx].is_completed = !todos[selected_idx].is_completed;
-                    redraw_list(&todos, selected_idx);
+                    redraw_list(&todos, selected_idx, displayed_count);
+                }
+                KeyCode::Char('/') => {
+                    let todo = &todos[selected_idx];
+                    match toggle_inprogress_tag(todo) {
+                        Ok(new_tags) => {
+                            todos[selected_idx].tags = new_tags.trim().to_string();
+                            redraw_list(&todos, selected_idx, displayed_count);
+                        }
+                        Err(e) => {
+                            let _ = terminal::disable_raw_mode();
+                            eprintln!("\nError toggling in-progress tag: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                KeyCode::Char('r') => {
+                    match fetch_all_todos() {
+                        Ok(new_todos) => {
+                            todos = new_todos;
+                            if selected_idx >= todos.len() && todos.len() > 0 {
+                                selected_idx = todos.len() - 1;
+                            }
+                            if todos.is_empty() {
+                                let _ = terminal::disable_raw_mode();
+                                let _ = io::stdout().execute(cursor::Show);
+                                println!("\nNo todos in Today list");
+                                return;
+                            }
+                            redraw_list(&todos, selected_idx, displayed_count);
+                            displayed_count = todos.len();
+                        }
+                        Err(e) => {
+                            let _ = terminal::disable_raw_mode();
+                            eprintln!("\nError refreshing todos: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
                 }
                 _ => {}
             }
