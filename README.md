@@ -36,15 +36,17 @@ Commands:
   count                 Show count of non-completed today todos
   total                 Alias for count
   rm [list] <num>       Remove todo (defaults to today)
-  complete [list] [num] Mark todo complete (defaults to today #1)
-  done [list] [num]     Alias for complete
-  finish [list] [num]   Alias for complete
+  complete [list] [num...] Mark todo(s) complete (defaults to today #1)
+  done [list] [num...]    Alias for complete
+  finish [list] [num...]  Alias for complete
   mv <num>              Move todo from inbox to today
   mv <from> <num> [to]  Move todo between lists (defaults to today)
   workon [list] <num>   Tag todo as in-progress (defaults to today)
   next [list] <num>     Tag todo as on-deck (defaults to today)
   next                  Show the on-deck todo
   ondeck                Alias for next
+  interactive           Interactive mode with keyboard navigation
+  i                     Alias for interactive
 ```
 
 ## Development

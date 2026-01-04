@@ -10,3 +10,11 @@ target/
 
 # macOS
 .DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Planning/development artifacts
+task_plan.md
+notes.md
+review.md
