@@ -28,7 +28,7 @@ BINDIR=/usr/local/bin make install
 `thingy i` or `thingy interactive` enters an interactive mode with keyboard navigation:
 
 - **↑/↓** - Navigate between todos
-- **Space** - Toggle completion status
+- **Space/x** - Toggle completion status
 - **/** - Toggle in-progress tag
 - **r** - Refresh from Things3
 - **q/Esc** - Exit

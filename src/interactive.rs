@@ -284,7 +284,7 @@ pub fn interactive_mode() {
                         redraw_list(&todos, selected_idx, displayed_count);
                     }
                 }
-                KeyCode::Char(' ') => {
+                KeyCode::Char(' ') | KeyCode::Char('x') => {
                     let todo = &todos[selected_idx];
                     if let Err(e) = toggle_todo_completion(todo) {
                         let _ = terminal::disable_raw_mode();
