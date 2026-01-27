@@ -1,4 +1,5 @@
 use crate::applescript::{run_applescript, parse_list_name, FILTER_COMPLETED};
+use rand::Rng;
 
 pub fn show_help() {
     eprintln!("Usage: thingy [command] [args]");
@@ -21,6 +22,7 @@ pub fn show_help() {
     eprintln!("  mv <num>              Move todo from inbox to today");
     eprintln!("  mv <from> <num> [to]  Move todo between lists (defaults to today)");
     eprintln!("  workon [list] <num>   Tag todo as in-progress (defaults to today)");
+    eprintln!("  rand                  Pick a random todo from today and mark it in-progress");
     eprintln!("  next [list] <num>     Tag todo as on-deck (defaults to today)");
     eprintln!("  next                  Show the on-deck todo");
     eprintln!("  ondeck                Alias for next");
@@ -485,9 +487,7 @@ end tell
     }
 }
 
-pub fn workon_todo(args: &[String]) {
-    let (list_name, todo_num) = parse_list_and_num(args);
-
+fn mark_todo_inprogress(list_name: &str, todo_num: usize) -> String {
     let script = format!(
         r#"
 tell application "Things3"
@@ -519,14 +519,18 @@ end tell
     );
 
     match run_applescript(&script) {
-        Ok(todo_name) => {
-            println!("Working on: {}", todo_name.trim());
-        }
+        Ok(todo_name) => todo_name,
         Err(error) => {
             eprintln!("Error tagging todo: {}", error);
             std::process::exit(1);
         }
     }
+}
+
+pub fn workon_todo(args: &[String]) {
+    let (list_name, todo_num) = parse_list_and_num(args);
+    let todo_name = mark_todo_inprogress(list_name, todo_num);
+    println!("Working on: {}", todo_name.trim());
 }
 
 pub fn next_todo(args: &[String]) {
@@ -626,4 +630,49 @@ end tell
             std::process::exit(1);
         }
     }
+}
+
+pub fn rand_todo() {
+    let count_script = format!(
+        r#"
+tell application "Things3"
+    set listToQuery to list "Today"
+    {}
+    return count of listTodos
+end tell
+"#,
+        FILTER_COMPLETED
+    );
+
+    let count: usize = match run_applescript(&count_script) {
+        Ok(count_str) => match count_str.trim().parse() {
+            Ok(n) => n,
+            Err(_) => {
+                eprintln!("Error parsing todo count");
+                std::process::exit(1);
+            }
+        },
+        Err(error) => {
+            eprintln!("Error counting todos: {}", error);
+            std::process::exit(1);
+        }
+    };
+
+    if count == 0 {
+        println!("No todos in Today list");
+        std::process::exit(0);
+    }
+
+    let mut rng = rand::thread_rng();
+    let random_num = rng.gen_range(1..=count);
+
+    let todo_name = mark_todo_inprogress("Today", random_num);
+
+    println!("You are working on:\n");
+    println!("    {}\n", todo_name.trim());
+    println!("Either:\n");
+    println!("- do it now");
+    println!("- spend five minutes on it and schedule it later");
+    println!("- delete the todo");
+    println!("- move it out of today into the \"whenever\" bucket");
 }

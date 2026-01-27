@@ -42,6 +42,7 @@ Commands:
   mv <num>              Move todo from inbox to today
   mv <from> <num> [to]  Move todo between lists (defaults to today)
   workon [list] <num>   Tag todo as in-progress (defaults to today)
+  rand                  Pick a random todo from today and mark it in-progress
   next [list] <num>     Tag todo as on-deck (defaults to today)
   next                  Show the on-deck todo
   ondeck                Alias for next

@@ -30,6 +30,7 @@ fn main() {
         "complete" | "done" | "finish" => complete_todo(&args[1..]),
         "mv" | "move" => move_todo(&args[1..]),
         "workon" => workon_todo(&args[1..]),
+        "rand" => rand_todo(),
         "next" | "ondeck" => next_todo(&args[1..]),
         "i" | "interactive" => interactive_mode(),
         _ => {
