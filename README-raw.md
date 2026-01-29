@@ -23,6 +23,40 @@ BINDIR=/usr/local/bin make install
 
 {{USAGE}}
 
+### Todo Identifiers
+
+Each todo is automatically assigned a unique identifier based on the first three non-whitespace characters of its name (uppercase). For example:
+
+- "Buy groceries" → **BUY**
+- "Call dentist" → **CAL**
+- "Fix bug #123" → **FIX**
+- "hi" → **HI**
+- "a" → **A**
+
+When multiple todos have the same base identifier, they're distinguished with numeric suffixes:
+- "Hello world" → **HEL**
+- "Hello there" → **HE1**
+- "Hello again" → **HE2**
+
+Identifiers are **case-insensitive** - you can use `buy`, `BUY`, or `Buy` interchangeably.
+
+**Examples:**
+```bash
+# Complete a todo by identifier
+thingy done BUY
+
+# Remove a todo
+thingy rm inbox CAL
+
+# Work on a todo
+thingy workon HEL
+
+# Complete multiple todos
+thingy done CAL PIN FLU
+```
+
+**Backward Compatibility:** Numeric positions still work (e.g., `thingy done 1`).
+
 ### Interactive Mode
 
 `thingy i` or `thingy interactive` enters an interactive mode with keyboard navigation:
@@ -30,6 +64,7 @@ BINDIR=/usr/local/bin make install
 - **↑/↓** - Navigate between todos
 - **Space/x** - Toggle completion status
 - **/** - Toggle in-progress tag
+- **+** - Add new todo
 - **r** - Refresh from Things3
 - **q/Esc** - Exit
 

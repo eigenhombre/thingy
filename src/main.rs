@@ -2,6 +2,7 @@ use std::env;
 
 mod applescript;
 mod commands;
+mod identifiers;
 mod interactive;
 mod todo;
 

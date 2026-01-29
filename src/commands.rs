@@ -1,4 +1,5 @@
 use crate::applescript::{run_applescript, parse_list_name, FILTER_COMPLETED};
+use crate::todo::Todo;
 use rand::Rng;
 
 pub fn show_help() {
@@ -7,7 +8,7 @@ pub fn show_help() {
     eprintln!("Commands:");
     eprintln!("  (no args)             Show today's todos");
     eprintln!("  help, -h              Show this help message");
-    eprintln!("  add [list] <text>     Add a new todo (defaults to inbox)");
+    eprintln!("  add [list] <text>     Add a new todo (defaults to today)");
     eprintln!("  inbox                 Show current inbox todos");
     eprintln!("  today                 Show current today todos");
     eprintln!("  inprog                Show in-progress todos from today");
@@ -15,15 +16,15 @@ pub fn show_help() {
     eprintln!("  finished              Alias for completed");
     eprintln!("  count                 Show count of non-completed today todos");
     eprintln!("  total                 Alias for count");
-    eprintln!("  rm [list] <num>       Remove todo (defaults to today)");
-    eprintln!("  complete [list] [num...] Mark todo(s) complete (defaults to today #1)");
-    eprintln!("  done [list] [num...]    Alias for complete");
-    eprintln!("  finish [list] [num...]  Alias for complete");
-    eprintln!("  mv <num>              Move todo from inbox to today");
-    eprintln!("  mv <from> <num> [to]  Move todo between lists (defaults to today)");
-    eprintln!("  workon [list] <num>   Tag todo as in-progress (defaults to today)");
+    eprintln!("  rm [list] <id>        Remove todo by identifier (defaults to today)");
+    eprintln!("  complete [list] <id...> Mark todo(s) complete by identifier");
+    eprintln!("  done [list] <id...>     Alias for complete");
+    eprintln!("  finish [list] <id...>   Alias for complete");
+    eprintln!("  mv <id>               Move todo from inbox to today by identifier");
+    eprintln!("  mv <from> <id> [to]   Move todo between lists (defaults to today)");
+    eprintln!("  workon [list] <id>    Tag todo as in-progress by identifier");
     eprintln!("  rand                  Pick a random todo from today and mark it in-progress");
-    eprintln!("  next [list] <num>     Tag todo as on-deck (defaults to today)");
+    eprintln!("  next [list] <id>      Tag todo as on-deck by identifier");
     eprintln!("  next                  Show the on-deck todo");
     eprintln!("  ondeck                Alias for next");
     eprintln!("  interactive           Interactive mode with keyboard navigation");
@@ -54,7 +55,7 @@ pub fn add_todo(args: &[String]) {
             }
             ("Today", &args[1..])
         }
-        _ => ("Inbox", args)
+        _ => ("Today", args)
     };
 
     let todo_text = text_args.join(" ");
@@ -82,13 +83,13 @@ end tell
     }
 }
 
-fn parse_list_and_num(args: &[String]) -> (&'static str, usize) {
+fn parse_list_and_identifier(args: &[String], todos: &[Todo]) -> (&'static str, usize) {
     if args.is_empty() {
-        eprintln!("Error: Missing todo number");
+        eprintln!("Error: Missing todo identifier or number");
         std::process::exit(1);
     }
 
-    let (list_name, num_str) = if args.len() == 1 {
+    let (list_name, id_str) = if args.len() == 1 {
         ("Today", &args[0])
     } else {
         match args[0].to_lowercase().as_str() {
@@ -102,20 +103,152 @@ fn parse_list_and_num(args: &[String]) -> (&'static str, usize) {
         }
     };
 
-    let todo_num: usize = match num_str.parse() {
-        Ok(n) if n > 0 => n,
-        _ => {
-            eprintln!("Error: Invalid todo number '{}'", num_str);
-            eprintln!("Todo number must be a positive integer");
+    if let Ok(n) = id_str.parse::<usize>() {
+        if n > 0 {
+            return (list_name, n);
+        }
+    }
+
+    let id_upper = id_str.to_uppercase();
+    for todo in todos {
+        if todo.identifier == id_upper {
+            return (list_name, todo.index);
+        }
+    }
+
+    eprintln!("Error: No todo found with identifier or number '{}'", id_str);
+    eprintln!("Use 'thingy {}' to see available todos", list_name.to_lowercase());
+    std::process::exit(1);
+}
+
+fn fetch_todos_for_list(list_name: &str) -> Vec<Todo> {
+    let script = format!(
+        r#"
+tell application "Things3"
+    set listToQuery to list "{}"
+    {}
+    set output to ""
+    set oldDelimiters to AppleScript's text item delimiters
+    repeat with todo in listTodos
+        set todoName to name of todo
+        set todoTags to tag names of todo
+        if (count of todoTags) > 0 then
+            set AppleScript's text item delimiters to ", "
+            set tagString to todoTags as string
+            set AppleScript's text item delimiters to oldDelimiters
+            set output to output & todoName & "|" & tagString & "\n"
+        else
+            set output to output & todoName & "|\n"
+        end if
+    end repeat
+    set AppleScript's text item delimiters to oldDelimiters
+    return output
+end tell
+"#,
+        list_name, FILTER_COMPLETED
+    );
+
+    match run_applescript(&script) {
+        Ok(result) => {
+            let mut todos = Vec::new();
+            for (idx, line) in result.trim().lines().enumerate() {
+                let parts: Vec<&str> = line.split('|').collect();
+                if parts.len() >= 1 {
+                    let name = parts[0].to_string();
+                    let tags = if parts.len() >= 2 && !parts[1].is_empty() {
+                        parts[1].to_string()
+                    } else {
+                        String::new()
+                    };
+                    todos.push(Todo {
+                        name,
+                        tags,
+                        is_completed: false,
+                        index: idx + 1,
+                        identifier: String::new(),
+                    });
+                }
+            }
+            crate::identifiers::assign_identifiers(&mut todos);
+            todos
+        }
+        Err(error) => {
+            eprintln!("Error fetching todos: {}", error);
             std::process::exit(1);
         }
-    };
+    }
+}
 
-    (list_name, todo_num)
+fn fetch_completed_todos() -> Vec<Todo> {
+    let script = r#"
+tell application "Things3"
+    set listToQuery to list "Today"
+    set allTodos to to dos of listToQuery
+    set output to ""
+    set oldDelimiters to AppleScript's text item delimiters
+    repeat with todo in allTodos
+        if status of todo is completed then
+            set todoName to name of todo
+            set todoTags to tag names of todo
+            if (count of todoTags) > 0 then
+                set AppleScript's text item delimiters to ", "
+                set tagString to todoTags as string
+                set AppleScript's text item delimiters to oldDelimiters
+                set output to output & todoName & "|" & tagString & "\n"
+            else
+                set output to output & todoName & "|\n"
+            end if
+        end if
+    end repeat
+    set AppleScript's text item delimiters to oldDelimiters
+    return output
+end tell
+"#;
+
+    match run_applescript(script) {
+        Ok(result) => {
+            let mut todos = Vec::new();
+            for (idx, line) in result.trim().lines().enumerate() {
+                let parts: Vec<&str> = line.split('|').collect();
+                if parts.len() >= 1 {
+                    let name = parts[0].to_string();
+                    let tags = if parts.len() >= 2 && !parts[1].is_empty() {
+                        parts[1].to_string()
+                    } else {
+                        String::new()
+                    };
+                    todos.push(Todo {
+                        name,
+                        tags,
+                        is_completed: true,
+                        index: idx + 1,
+                        identifier: String::new(),
+                    });
+                }
+            }
+            crate::identifiers::assign_identifiers(&mut todos);
+            todos
+        }
+        Err(error) => {
+            eprintln!("Error fetching completed todos: {}", error);
+            std::process::exit(1);
+        }
+    }
 }
 
 pub fn remove_todo(args: &[String]) {
-    let (list_name, todo_num) = parse_list_and_num(args);
+    let list_name = if args.len() >= 2 {
+        match args[0].to_lowercase().as_str() {
+            "inbox" => "Inbox",
+            "today" => "Today",
+            _ => "Today",
+        }
+    } else {
+        "Today"
+    };
+
+    let todos = fetch_todos_for_list(list_name);
+    let (list_name, todo_num) = parse_list_and_identifier(args, &todos);
 
     let script = format!(
         r#"
@@ -147,21 +280,22 @@ end tell
 
 pub fn complete_todo(args: &[String]) {
     if args.is_empty() {
-        complete_single_todo("Today", 1);
-        return;
+        eprintln!("Error: 'complete' command requires todo identifier");
+        eprintln!("Usage: thingy complete [list] <id...>");
+        std::process::exit(1);
     }
 
-    let (list_name, num_args) = match args[0].to_lowercase().as_str() {
+    let (list_name, id_args) = match args[0].to_lowercase().as_str() {
         "inbox" => {
             if args.len() < 2 {
-                eprintln!("Error: Missing todo number after list name");
+                eprintln!("Error: Missing todo identifier after list name");
                 std::process::exit(1);
             }
             ("Inbox", &args[1..])
         }
         "today" => {
             if args.len() < 2 {
-                eprintln!("Error: Missing todo number after list name");
+                eprintln!("Error: Missing todo identifier after list name");
                 std::process::exit(1);
             }
             ("Today", &args[1..])
@@ -169,20 +303,36 @@ pub fn complete_todo(args: &[String]) {
         _ => ("Today", args)
     };
 
+    let todos = fetch_todos_for_list(list_name);
     let mut todo_nums: Vec<usize> = Vec::new();
-    for num_str in num_args {
-        match num_str.parse::<usize>() {
-            Ok(n) if n > 0 => todo_nums.push(n),
-            _ => {
-                eprintln!("Error: Invalid todo number '{}'", num_str);
-                eprintln!("Todo number must be a positive integer");
-                std::process::exit(1);
+
+    for id_str in id_args {
+        if let Ok(n) = id_str.parse::<usize>() {
+            if n > 0 {
+                todo_nums.push(n);
+                continue;
             }
+        }
+
+        let id_upper = id_str.to_uppercase();
+        let mut found = false;
+        for todo in &todos {
+            if todo.identifier == id_upper {
+                todo_nums.push(todo.index);
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            eprintln!("Error: No todo found with identifier or number '{}'", id_str);
+            eprintln!("Use 'thingy {}' to see available todos", list_name.to_lowercase());
+            std::process::exit(1);
         }
     }
 
     if todo_nums.is_empty() {
-        eprintln!("Error: No valid todo numbers provided");
+        eprintln!("Error: No valid todo identifiers provided");
         std::process::exit(1);
     }
 
@@ -246,13 +396,13 @@ end tell
 
 pub fn move_todo(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Error: 'mv' command requires todo number");
-        eprintln!("Usage: thingy mv <num>");
-        eprintln!("       thingy mv <from> <num> [to]");
+        eprintln!("Error: 'mv' command requires todo identifier or number");
+        eprintln!("Usage: thingy mv <id>");
+        eprintln!("       thingy mv <from> <id> [to]");
         std::process::exit(1);
     }
 
-    let (from_list, todo_num, to_list) = if args.len() == 1 {
+    let (from_list, id_str, to_list) = if args.len() == 1 {
         ("Inbox", &args[0], "Today")
     } else if args.len() == 2 {
         let from = parse_list_name(&args[0]).unwrap_or_else(|e| {
@@ -272,12 +422,32 @@ pub fn move_todo(args: &[String]) {
         (from, &args[1], to)
     };
 
-    let num: usize = match todo_num.parse() {
-        Ok(n) if n > 0 => n,
-        _ => {
-            eprintln!("Error: Invalid todo number '{}'", todo_num);
-            eprintln!("Todo number must be a positive integer");
+    let todos = fetch_todos_for_list(from_list);
+
+    let num: usize = if let Ok(n) = id_str.parse::<usize>() {
+        if n > 0 {
+            n
+        } else {
+            eprintln!("Error: Invalid todo number '{}'", id_str);
             std::process::exit(1);
+        }
+    } else {
+        let id_upper = id_str.to_uppercase();
+        let mut found_index = None;
+        for todo in &todos {
+            if todo.identifier == id_upper {
+                found_index = Some(todo.index);
+                break;
+            }
+        }
+
+        match found_index {
+            Some(idx) => idx,
+            None => {
+                eprintln!("Error: No todo found with identifier or number '{}'", id_str);
+                eprintln!("Use 'thingy {}' to see available todos", from_list.to_lowercase());
+                std::process::exit(1);
+            }
         }
     };
 
@@ -349,140 +519,59 @@ end tell
 }
 
 pub fn show_inprog() {
-    let script = format!(
-        r#"
-tell application "Things3"
-    set listToQuery to list "Today"
-    {}
-    set output to ""
-    set oldDelimiters to AppleScript's text item delimiters
-    repeat with todo in listTodos
-        set todoTags to tag names of todo
-        if todoTags contains "in-progress" then
-            set todoName to name of todo
-            if (count of todoTags) > 0 then
-                set AppleScript's text item delimiters to ", "
-                set tagString to todoTags as string
-                set AppleScript's text item delimiters to oldDelimiters
-                set output to output & todoName & " [" & tagString & "]" & "\n"
-            else
-                set output to output & todoName & "\n"
-            end if
-        end if
-    end repeat
-    set AppleScript's text item delimiters to oldDelimiters
-    return output
-end tell
-"#,
-        FILTER_COMPLETED
-    );
+    let todos = fetch_todos_for_list("Today");
+    let inprog_todos: Vec<&Todo> = todos
+        .iter()
+        .filter(|t| t.tags.contains("in-progress"))
+        .collect();
 
-    match run_applescript(&script) {
-        Ok(todos) => {
-            let trimmed = todos.trim();
-            if trimmed.is_empty() {
-                println!("No in-progress todos");
+    if inprog_todos.is_empty() {
+        println!("No in-progress todos");
+    } else {
+        println!("In-progress todos:");
+        for todo in inprog_todos {
+            let todo_text = if !todo.tags.is_empty() {
+                format!("{} [{}]", todo.name, todo.tags)
             } else {
-                println!("In-progress todos:");
-                for (i, todo) in trimmed.lines().enumerate() {
-                    println!("  {}. {}", i + 1, todo);
-                }
-            }
-        }
-        Err(error) => {
-            eprintln!("Error querying Things: {}", error);
-            std::process::exit(1);
+                todo.name.clone()
+            };
+            println!(" {} {}", todo.identifier, todo_text);
         }
     }
 }
 
 pub fn show_completed() {
-    let script = r#"
-tell application "Things3"
-    set listToQuery to list "Today"
-    set allTodos to to dos of listToQuery
-    set output to ""
-    set oldDelimiters to AppleScript's text item delimiters
-    repeat with todo in allTodos
-        if status of todo is completed then
-            set todoName to name of todo
-            set todoTags to tag names of todo
-            if (count of todoTags) > 0 then
-                set AppleScript's text item delimiters to ", "
-                set tagString to todoTags as string
-                set AppleScript's text item delimiters to oldDelimiters
-                set output to output & todoName & " [" & tagString & "]" & "\n"
-            else
-                set output to output & todoName & "\n"
-            end if
-        end if
-    end repeat
-    set AppleScript's text item delimiters to oldDelimiters
-    return output
-end tell
-"#;
+    let todos = fetch_completed_todos();
 
-    match run_applescript(script) {
-        Ok(todos) => {
-            let trimmed = todos.trim();
-            if trimmed.is_empty() {
-                println!("No completed todos today");
+    if todos.is_empty() {
+        println!("No completed todos today");
+    } else {
+        println!("Completed today:");
+        for todo in todos {
+            let todo_text = if !todo.tags.is_empty() {
+                format!("{} [{}]", todo.name, todo.tags)
             } else {
-                println!("Completed today:");
-                for (i, todo) in trimmed.lines().enumerate() {
-                    println!("  {}. {}", i + 1, todo);
-                }
-            }
-        }
-        Err(error) => {
-            eprintln!("Error querying Things: {}", error);
-            std::process::exit(1);
+                todo.name.clone()
+            };
+            println!(" {} {}", todo.identifier, todo_text);
         }
     }
 }
 
 fn show_list(list_name: &str) {
-    let script = format!(
-        r#"
-tell application "Things3"
-    set listToQuery to list "{}"
-    {}
-    set output to ""
-    set oldDelimiters to AppleScript's text item delimiters
-    repeat with todo in listTodos
-        set todoName to name of todo
-        set todoTags to tag names of todo
-        if (count of todoTags) > 0 then
-            set AppleScript's text item delimiters to ", "
-            set tagString to todoTags as string
-            set AppleScript's text item delimiters to oldDelimiters
-            set output to output & todoName & " [" & tagString & "]" & "\n"
-        else
-            set output to output & todoName & "\n"
-        end if
-    end repeat
-    set AppleScript's text item delimiters to oldDelimiters
-    return output
-end tell
-"#,
-        list_name, FILTER_COMPLETED
-    );
+    let todos = fetch_todos_for_list(list_name);
 
-    match run_applescript(&script) {
-        Ok(todos) => {
-            let trimmed = todos.trim();
-            if trimmed.is_empty() {
-                println!("{} is empty", list_name);
+    if todos.is_empty() {
+        println!("{} is empty", list_name);
+    } else {
+        println!("{} todos:", list_name);
+        for todo in todos {
+            let todo_text = if !todo.tags.is_empty() {
+                format!("{} [{}]", todo.name, todo.tags)
             } else {
-                println!("{} todos:", list_name);
-                for (i, todo) in trimmed.lines().enumerate() {
-                    println!("  {}. {}", i + 1, todo);
-                }
-            }
-        }
-        Err(error) => {
-            eprintln!("Error querying Things: {}", error);
-            std::process::exit(1);
+                todo.name.clone()
+            };
+            println!(" {} {}", todo.identifier, todo_text);
         }
     }
 }
@@ -528,7 +617,18 @@ end tell
 }
 
 pub fn workon_todo(args: &[String]) {
-    let (list_name, todo_num) = parse_list_and_num(args);
+    let list_name = if args.len() >= 2 {
+        match args[0].to_lowercase().as_str() {
+            "inbox" => "Inbox",
+            "today" => "Today",
+            _ => "Today",
+        }
+    } else {
+        "Today"
+    };
+
+    let todos = fetch_todos_for_list(list_name);
+    let (list_name, todo_num) = parse_list_and_identifier(args, &todos);
     let todo_name = mark_todo_inprogress(list_name, todo_num);
     println!("Working on: {}", todo_name.trim());
 }
@@ -542,7 +642,18 @@ pub fn next_todo(args: &[String]) {
 }
 
 fn tag_next_todo(args: &[String]) {
-    let (list_name, todo_num) = parse_list_and_num(args);
+    let list_name = if args.len() >= 2 {
+        match args[0].to_lowercase().as_str() {
+            "inbox" => "Inbox",
+            "today" => "Today",
+            _ => "Today",
+        }
+    } else {
+        "Today"
+    };
+
+    let todos = fetch_todos_for_list(list_name);
+    let (list_name, todo_num) = parse_list_and_identifier(args, &todos);
 
     let script = format!(
         r#"

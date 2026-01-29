@@ -59,9 +59,11 @@ end tell
                         tags,
                         is_completed,
                         index: idx + 1,
+                        identifier: String::new(),
                     });
                 }
             }
+            crate::identifiers::assign_identifiers(&mut todos);
             Ok(todos)
         }
         Err(e) => Err(e),
@@ -206,9 +208,9 @@ fn render_todo_line(todo: &Todo, is_selected: bool) -> String {
     };
 
     if todo.is_completed {
-        format!("{}{}. \x1b[9m{}\x1b[29m", prefix, todo.index, todo_text)
+        format!("{}{} \x1b[9m{}\x1b[29m", prefix, todo.identifier, todo_text)
     } else {
-        format!("{}{}. {}", prefix, todo.index, todo_text)
+        format!("{}{} {}", prefix, todo.identifier, todo_text)
     }
 }
 
@@ -227,6 +229,119 @@ fn redraw_list(todos: &[Todo], selected_idx: usize, displayed_count: usize) {
         print!("{}\r\n", line);
     }
     stdout.flush().unwrap();
+}
+
+fn clear_line_and_print(stdout: &mut io::Stdout, text: &str) {
+    stdout.execute(cursor::MoveToColumn(0)).unwrap();
+    stdout.execute(terminal::Clear(terminal::ClearType::CurrentLine)).unwrap();
+    print!("{}", text);
+    stdout.flush().unwrap();
+}
+
+fn redraw_from_top(todos: &[Todo], selected_idx: usize) {
+    let mut stdout = io::stdout();
+    stdout.execute(cursor::MoveToColumn(0)).unwrap();
+    stdout.execute(terminal::Clear(terminal::ClearType::FromCursorDown)).unwrap();
+
+    for (idx, todo) in todos.iter().enumerate() {
+        let line = render_todo_line(todo, idx == selected_idx);
+        print!("{}\r\n", line);
+    }
+    stdout.flush().unwrap();
+}
+
+fn add_new_todo(todos: &[Todo], displayed_count: usize) -> Result<Option<String>, String> {
+    let mut stdout = io::stdout();
+    let mut input = String::new();
+
+    // Move cursor to top of list:
+    if displayed_count > 0 {
+        stdout.execute(cursor::MoveUp(displayed_count as u16)).unwrap();
+    }
+
+    // Clear from cursor down to remove the existing list:
+    stdout.execute(terminal::Clear(terminal::ClearType::FromCursorDown)).unwrap();
+
+    // Show input prompt at top:
+    print!("+ ___ ");
+    stdout.flush().unwrap();
+
+    // Print all existing todos below:
+    for todo in todos {
+        print!("\r\n{}", render_todo_line(todo, false));
+    }
+    stdout.flush().unwrap();
+
+    // Move cursor back to input line:
+    if todos.len() > 0 {
+        stdout.execute(cursor::MoveUp(todos.len() as u16)).unwrap();
+        stdout.execute(cursor::MoveToColumn(6)).unwrap();
+    }
+    stdout.flush().unwrap();
+
+    loop {
+        if let Ok(Event::Key(KeyEvent {
+            code,
+            modifiers: _,
+            kind: _,
+            state: _,
+        })) = event::read()
+        {
+            let should_update_display = match code {
+                KeyCode::Char(c) => {
+                    input.push(c);
+                    true
+                }
+                KeyCode::Backspace => {
+                    if !input.is_empty() {
+                        input.pop();
+                        true
+                    } else {
+                        false
+                    }
+                }
+                KeyCode::Enter => {
+                    if !input.trim().is_empty() {
+                        // Escape backslashes and quotes for AppleScript string literal:
+                        let escaped_text = input.trim()
+                            .replace("\\", "\\\\")
+                            .replace("\"", "\\\"");
+
+                        let script = format!(
+                            r#"
+tell application "Things3"
+    set newTodo to make new to do with properties {{name:"{}"}}
+    move newTodo to list "Today"
+    return name of newTodo
+end tell
+"#,
+                            escaped_text
+                        );
+
+                        match run_applescript(&script) {
+                            Ok(name) => return Ok(Some(name.trim().to_string())),
+                            Err(e) => return Err(e),
+                        }
+                    } else {
+                        return Ok(None);
+                    }
+                }
+                KeyCode::Esc => {
+                    return Ok(None);
+                }
+                _ => false,
+            };
+
+            if should_update_display {
+                let identifier = if input.is_empty() {
+                    "___".to_string()
+                } else {
+                    Todo::generate_base_identifier(&input)
+                };
+                clear_line_and_print(&mut stdout, &format!("+ {} {}", identifier, input));
+            }
+        }
+    }
 }
 
 pub fn interactive_mode() {
@@ -286,13 +401,24 @@ pub fn interactive_mode() {
                 }
                 KeyCode::Char(' ') | KeyCode::Char('x') => {
                     let todo = &todos[selected_idx];
+                    let was_completed = todo.is_completed;
                     if let Err(e) = toggle_todo_completion(todo) {
                         let _ = terminal::disable_raw_mode();
                         eprintln!("\nError toggling todo: {}", e);
                         std::process::exit(1);
                     }
 
-                    todos[selected_idx].is_completed = !todos[selected_idx].is_completed;
+                    todos[selected_idx].is_completed = !was_completed;
+
+                    // Remove in-progress tag from local state when completing:
+                    if !was_completed && todos[selected_idx].tags.contains("in-progress") {
+                        todos[selected_idx].tags = todos[selected_idx].tags
+                            .split(", ")
+                            .filter(|t| *t != "in-progress")
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                    }
+
                     redraw_list(&todos, selected_idx, displayed_count);
                 }
                 KeyCode::Char('/') => {
@@ -328,6 +454,33 @@ pub fn interactive_mode() {
                         Err(e) => {
                             let _ = terminal::disable_raw_mode();
                             eprintln!("\nError refreshing todos: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                KeyCode::Char('+') => {
+                    match add_new_todo(&todos, displayed_count) {
+                        Ok(Some(_)) => {
+                            match fetch_all_todos() {
+                                Ok(new_todos) => {
+                                    todos = new_todos;
+                                    selected_idx = 0;
+                                    redraw_from_top(&todos, selected_idx);
+                                    displayed_count = todos.len();
+                                }
+                                Err(e) => {
+                                    let _ = terminal::disable_raw_mode();
+                                    eprintln!("\nError refreshing todos: {}", e);
+                                    std::process::exit(1);
+                                }
+                            }
+                        }
+                        Ok(None) => {
+                            redraw_from_top(&todos, selected_idx);
+                        }
+                        Err(e) => {
+                            let _ = terminal::disable_raw_mode();
+                            eprintln!("\nError adding todo: {}", e);
                             std::process::exit(1);
                         }
                     }

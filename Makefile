@@ -3,7 +3,7 @@ BINDIR ?= ~/bin
 .PHONY: all
 all: target/release/thingy
 
-target/release/thingy: Cargo.toml src/main.rs
+target/release/thingy: Cargo.toml $(wildcard src/*.rs)
 	cargo build --release
 
 .PHONY: install

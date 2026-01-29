@@ -27,7 +27,7 @@ Usage: thingy [command] [args]
 Commands:
   (no args)             Show today's todos
   help, -h              Show this help message
-  add [list] <text>     Add a new todo (defaults to inbox)
+  add [list] <text>     Add a new todo (defaults to today)
   inbox                 Show current inbox todos
   today                 Show current today todos
   inprog                Show in-progress todos from today
@@ -35,20 +35,54 @@ Commands:
   finished              Alias for completed
   count                 Show count of non-completed today todos
   total                 Alias for count
-  rm [list] <num>       Remove todo (defaults to today)
-  complete [list] [num...] Mark todo(s) complete (defaults to today #1)
-  done [list] [num...]    Alias for complete
-  finish [list] [num...]  Alias for complete
-  mv <num>              Move todo from inbox to today
-  mv <from> <num> [to]  Move todo between lists (defaults to today)
-  workon [list] <num>   Tag todo as in-progress (defaults to today)
+  rm [list] <id>        Remove todo by identifier (defaults to today)
+  complete [list] <id...> Mark todo(s) complete by identifier
+  done [list] <id...>     Alias for complete
+  finish [list] <id...>   Alias for complete
+  mv <id>               Move todo from inbox to today by identifier
+  mv <from> <id> [to]   Move todo between lists (defaults to today)
+  workon [list] <id>    Tag todo as in-progress by identifier
   rand                  Pick a random todo from today and mark it in-progress
-  next [list] <num>     Tag todo as on-deck (defaults to today)
+  next [list] <id>      Tag todo as on-deck by identifier
   next                  Show the on-deck todo
   ondeck                Alias for next
   interactive           Interactive mode with keyboard navigation
   i                     Alias for interactive
 ```
+
+### Todo Identifiers
+
+Each todo is automatically assigned a unique identifier based on the first three non-whitespace characters of its name (uppercase). For example:
+
+- "Buy groceries" → **BUY**
+- "Call dentist" → **CAL**
+- "Fix bug #123" → **FIX**
+- "hi" → **HI**
+- "a" → **A**
+
+When multiple todos have the same base identifier, they're distinguished with numeric suffixes:
+- "Hello world" → **HEL**
+- "Hello there" → **HE1**
+- "Hello again" → **HE2**
+
+Identifiers are **case-insensitive** - you can use `buy`, `BUY`, or `Buy` interchangeably.
+
+**Examples:**
+```bash
+# Complete a todo by identifier
+thingy done BUY
+
+# Remove a todo
+thingy rm inbox CAL
+
+# Work on a todo
+thingy workon HEL
+
+# Complete multiple todos
+thingy done CAL PIN FLU
+```
+
+**Backward Compatibility:** Numeric positions still work (e.g., `thingy done 1`).
 
 ### Interactive Mode
 
@@ -57,6 +91,7 @@ Commands:
 - **↑/↓** - Navigate between todos
 - **Space/x** - Toggle completion status
 - **/** - Toggle in-progress tag
+- **+** - Add new todo
 - **r** - Refresh from Things3
 - **q/Esc** - Exit
 
