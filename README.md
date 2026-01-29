@@ -7,48 +7,42 @@ Heavily vibe-coded with Claude, though I do use this in daily use
 
 ## Installation
 
-```bash
-make install
-```
+    make install
 
 This installs the binary to `~/bin/thingy` by default.
 
 To install to a different location, set the `BINDIR` environment variable:
 
-```bash
-BINDIR=/usr/local/bin make install
-```
+    BINDIR=/usr/local/bin make install
 
 ## Usage
 
-```
-Usage: thingy [command] [args]
-
-Commands:
-  (no args)             Show today's todos
-  help, -h              Show this help message
-  add [list] <text>     Add a new todo (defaults to today)
-  inbox                 Show current inbox todos
-  today                 Show current today todos
-  inprog                Show in-progress todos from today
-  completed             Show completed todos from today
-  finished              Alias for completed
-  count                 Show count of non-completed today todos
-  total                 Alias for count
-  rm [list] <id>        Remove todo by identifier (defaults to today)
-  complete [list] <id...> Mark todo(s) complete by identifier
-  done [list] <id...>     Alias for complete
-  finish [list] <id...>   Alias for complete
-  mv <id>               Move todo from inbox to today by identifier
-  mv <from> <id> [to]   Move todo between lists (defaults to today)
-  workon [list] <id>    Tag todo as in-progress by identifier
-  rand                  Pick a random todo from today and mark it in-progress
-  next [list] <id>      Tag todo as on-deck by identifier
-  next                  Show the on-deck todo
-  ondeck                Alias for next
-  interactive           Interactive mode with keyboard navigation
-  i                     Alias for interactive
-```
+    Usage: thingy [command] [args]
+    
+    Commands:
+      (no args)             Show today's todos
+      help, -h              Show this help message
+      add [list] <text>     Add a new todo (defaults to today)
+      inbox                 Show current inbox todos
+      today                 Show current today todos
+      inprog                Show in-progress todos from today
+      completed             Show completed todos from today
+      finished              Alias for completed
+      count                 Show count of non-completed today todos
+      total                 Alias for count
+      rm [list] <id>        Remove todo by identifier (defaults to today)
+      complete [list] <id...> Mark todo(s) complete by identifier
+      done [list] <id...>     Alias for complete
+      finish [list] <id...>   Alias for complete
+      mv <id>               Move todo from inbox to today by identifier
+      mv <from> <id> [to]   Move todo between lists (defaults to today)
+      workon [list] <id>    Tag todo as in-progress by identifier
+      rand                  Pick a random todo from today and mark it in-progress
+      next [list] <id>      Tag todo as on-deck by identifier
+      next                  Show the on-deck todo
+      ondeck                Alias for next
+      interactive           Interactive mode with keyboard navigation
+      i                     Alias for interactive
 
 ### Todo Identifiers
 
@@ -68,19 +62,18 @@ When multiple todos have the same base identifier, they're distinguished with nu
 Identifiers are **case-insensitive** - you can use `buy`, `BUY`, or `Buy` interchangeably.
 
 **Examples:**
-```bash
-# Complete a todo by identifier
-thingy done BUY
 
-# Remove a todo
-thingy rm inbox CAL
+    # Complete a todo by identifier
+    thingy done BUY
 
-# Work on a todo
-thingy workon HEL
+    # Remove a todo
+    thingy rm inbox CAL
 
-# Complete multiple todos
-thingy done CAL PIN FLU
-```
+    # Work on a todo
+    thingy workon HEL
+
+    # Complete multiple todos
+    thingy done CAL PIN FLU
 
 **Backward Compatibility:** Numeric positions still work (e.g., `thingy done 1`).
 
@@ -99,9 +92,8 @@ thingy done CAL PIN FLU
 ## Development
 
 Update this README's usage section:
-```bash
-make readme
-```
+
+    make readme
 
 ## TODOs
 

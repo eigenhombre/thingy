@@ -19,6 +19,6 @@ clean:
 readme: target/release/thingy
 	@echo "Generating README.md from README-raw.md..."
 	@./target/release/thingy help > .help.tmp 2>&1
-	@awk '/\{\{USAGE\}\}/ { print "```"; while(getline line < ".help.tmp") print line; print "```"; next } { print }' README-raw.md > README.md
+	@awk '/\{\{USAGE\}\}/ { while(getline line < ".help.tmp") print "    " line; next } { print }' README-raw.md > README.md
 	@rm -f .help.tmp
 	@echo "README.md generated"
