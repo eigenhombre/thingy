@@ -88,10 +88,11 @@ thingy done CAL PIN FLU
 
 `thingy i` or `thingy interactive` enters an interactive mode with keyboard navigation:
 
-- **↑/↓** - Navigate between todos
+- **↑/↓** or **k/j** - Navigate between todos
 - **Space/x** - Toggle completion status
 - **/** - Toggle in-progress tag
 - **+** - Add new todo
+- **L** - Log completed items to Logbook
 - **r** - Refresh from Things3
 - **q/Esc** - Exit
 

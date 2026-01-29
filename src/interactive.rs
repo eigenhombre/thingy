@@ -387,13 +387,13 @@ pub fn interactive_mode() {
                 KeyCode::Char('q') | KeyCode::Esc => {
                     break;
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('k') => {
                     if selected_idx > 0 {
                         selected_idx -= 1;
                         redraw_list(&todos, selected_idx, displayed_count);
                     }
                 }
-                KeyCode::Down => {
+                KeyCode::Down | KeyCode::Char('j') => {
                     if selected_idx < todos.len() - 1 {
                         selected_idx += 1;
                         redraw_list(&todos, selected_idx, displayed_count);
@@ -436,6 +436,40 @@ pub fn interactive_mode() {
                     }
                 }
                 KeyCode::Char('r') => {
+                    match fetch_all_todos() {
+                        Ok(new_todos) => {
+                            todos = new_todos;
+                            if selected_idx >= todos.len() && todos.len() > 0 {
+                                selected_idx = todos.len() - 1;
+                            }
+                            if todos.is_empty() {
+                                let _ = terminal::disable_raw_mode();
+                                let _ = io::stdout().execute(cursor::Show);
+                                println!("\nNo todos in Today list");
+                                return;
+                            }
+                            redraw_list(&todos, selected_idx, displayed_count);
+                            displayed_count = todos.len();
+                        }
+                        Err(e) => {
+                            let _ = terminal::disable_raw_mode();
+                            eprintln!("\nError refreshing todos: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                KeyCode::Char('L') => {
+                    let script = r#"
+tell application "Things3"
+    log completed now
+end tell
+"#;
+                    if let Err(e) = run_applescript(script) {
+                        let _ = terminal::disable_raw_mode();
+                        eprintln!("\nError logging completed: {}", e);
+                        std::process::exit(1);
+                    }
+
                     match fetch_all_todos() {
                         Ok(new_todos) => {
                             todos = new_todos;
