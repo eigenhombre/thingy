@@ -76,13 +76,3 @@ command-line tool](https://github.com/eigenhombre/trish).
 Update this README's usage section (from `thingy -h`):
 
     make readme
-
-## TODOs
-
-1. Enhance string escaping to handle newlines, carriage returns, and other special characters
-1. Extract AppleScript generation into helper functions to reduce duplication
-1. Create reusable functions for tag manipulation operations
-1. Add validation that Things3 is installed and available before operations
-1. Add unit tests for parsing and validation logic
-1. Improve error messages when Things3 is unavailable
-1. Refactor tag filtering logic to eliminate duplication
