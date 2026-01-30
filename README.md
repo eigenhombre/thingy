@@ -1,6 +1,6 @@
 # thingy
 
-![CI](https://github.com/eigenhombre/thingy/workflows/CI/badge.svg)
+[![Build](https://github.com/eigenhombre/thingy/actions/workflows/build.yml/badge.svg)](https://github.com/eigenhombre/thingy/actions/workflows/build.yml)
 
 A command-line tool for managing Things3 todos without opening the
 app.  Created leaning heavily on Claude (as my Rust skills are still
