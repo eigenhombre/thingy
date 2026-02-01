@@ -33,6 +33,7 @@ fn main() {
         "workon" => workon_todo(&args[1..]),
         "rand" => rand_todo(),
         "next" | "ondeck" => next_todo(&args[1..]),
+        "show" | "view" => show_todo_notes(&args[1..]),
         "i" | "interactive" => interactive_mode(),
         _ => {
             eprintln!("Error: Unknown command '{}'", command);

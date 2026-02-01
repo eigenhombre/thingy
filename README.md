@@ -1,6 +1,6 @@
 # thingy
 
-[![Build](https://github.com/eigenhombre/thingy/actions/workflows/build.yml/badge.svg)](https://github.com/eigenhombre/thingy/actions/workflows/build.yml)
+![build](https://github.com/eigenhombre/thingy/workflows/CI/badge.svg)
 
 A command-line tool for managing Things3 todos without opening the
 app.  Created leaning heavily on Claude (as my Rust skills are still
@@ -42,6 +42,8 @@ To install to a different location, set the `BINDIR` environment variable:
       next [list] <id>      Tag todo as on-deck by identifier
       next                  Show the on-deck todo
       ondeck                Alias for next
+      show [list] <id>      Show notes for a todo by identifier
+      view [list] <id>      Alias for show
       interactive           Interactive mode with keyboard navigation
       i                     Alias for interactive
 

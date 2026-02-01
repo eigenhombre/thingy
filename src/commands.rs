@@ -27,6 +27,8 @@ pub fn show_help() {
     eprintln!("  next [list] <id>      Tag todo as on-deck by identifier");
     eprintln!("  next                  Show the on-deck todo");
     eprintln!("  ondeck                Alias for next");
+    eprintln!("  show [list] <id>      Show notes for a todo by identifier");
+    eprintln!("  view [list] <id>      Alias for show");
     eprintln!("  interactive           Interactive mode with keyboard navigation");
     eprintln!("  i                     Alias for interactive");
 }
@@ -786,4 +788,57 @@ end tell
     println!("- spend five minutes on it and schedule it later");
     println!("- delete the todo");
     println!("- move it out of today into the \"whenever\" bucket");
+}
+
+pub fn fetch_todo_notes(list_name: &str, todo_num: usize) -> Result<String, String> {
+    let script = format!(
+        r#"
+tell application "Things3"
+    set listToQuery to list "{}"
+    {}
+    if (count of listTodos) < {} then
+        error "Todo number {} is out of range"
+    end if
+    set todoItem to item {} of listTodos
+    return notes of todoItem
+end tell
+"#,
+        list_name, FILTER_COMPLETED, todo_num, todo_num, todo_num
+    );
+
+    run_applescript(&script)
+}
+
+pub fn show_todo_notes(args: &[String]) {
+    let list_name = if args.len() >= 2 {
+        match args[0].to_lowercase().as_str() {
+            "inbox" => "Inbox",
+            "today" => "Today",
+            _ => "Today",
+        }
+    } else {
+        "Today"
+    };
+
+    let todos = fetch_todos_for_list(list_name);
+    let (list_name, todo_num) = parse_list_and_identifier(args, &todos);
+
+    match fetch_todo_notes(list_name, todo_num) {
+        Ok(notes) => {
+            let todo = &todos.iter().find(|t| t.index == todo_num).unwrap();
+            println!("{}", todo.name);
+            let trimmed_notes = notes.trim();
+            if !trimmed_notes.is_empty() {
+                println!();
+                println!("{}", trimmed_notes);
+            } else {
+                println!();
+                println!("(no notes)");
+            }
+        }
+        Err(error) => {
+            eprintln!("Error fetching notes: {}", error);
+            std::process::exit(1);
+        }
+    }
 }
