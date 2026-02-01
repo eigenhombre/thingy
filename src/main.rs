@@ -34,6 +34,7 @@ fn main() {
         "rand" => rand_todo(),
         "next" | "ondeck" => next_todo(&args[1..]),
         "show" | "view" => show_todo_notes(&args[1..]),
+        "log" => show_log(&args[1..]),
         "i" | "interactive" => interactive_mode(),
         _ => {
             eprintln!("Error: Unknown command '{}'", command);

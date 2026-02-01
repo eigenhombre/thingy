@@ -29,6 +29,7 @@ pub fn show_help() {
     eprintln!("  ondeck                Alias for next");
     eprintln!("  show [list] <id>      Show notes for a todo by identifier");
     eprintln!("  view [list] <id>      Alias for show");
+    eprintln!("  log [days]            Show logbook entries (defaults to 1 day)");
     eprintln!("  interactive           Interactive mode with keyboard navigation");
     eprintln!("  i                     Alias for interactive");
 }
@@ -838,6 +839,82 @@ pub fn show_todo_notes(args: &[String]) {
         }
         Err(error) => {
             eprintln!("Error fetching notes: {}", error);
+            std::process::exit(1);
+        }
+    }
+}
+
+pub fn show_log(args: &[String]) {
+    let days: i32 = if args.is_empty() {
+        1
+    } else {
+        match args[0].parse() {
+            Ok(n) if n > 0 => n,
+            _ => {
+                eprintln!("Error: days must be a positive number");
+                eprintln!("Usage: thingy log [days]");
+                std::process::exit(1);
+            }
+        }
+    };
+
+    let script = format!(
+        r#"
+tell application "Things3"
+    set targetDate to (current date) - ({} * days)
+    set logbookTodos to to dos of list "Logbook"
+    set output to ""
+    set oldDelimiters to AppleScript's text item delimiters
+
+    repeat with i from 1 to (count of logbookTodos)
+        set todo to item i of logbookTodos
+        set completionDate to completion date of todo
+        if completionDate is not missing value then
+            if completionDate ≥ targetDate then
+                set todoName to name of todo
+                set todoTags to tag names of todo
+                if (count of todoTags) > 0 then
+                    set AppleScript's text item delimiters to ", "
+                    set tagString to todoTags as string
+                    set AppleScript's text item delimiters to oldDelimiters
+                    set output to output & todoName & "|" & tagString & "\n"
+                else
+                    set output to output & todoName & "|\n"
+                end if
+            else if completionDate < targetDate then
+                exit repeat
+            end if
+        end if
+    end repeat
+
+    set AppleScript's text item delimiters to oldDelimiters
+    return output
+end tell
+"#,
+        days
+    );
+
+    match run_applescript(&script) {
+        Ok(result) => {
+            let trimmed = result.trim();
+            if trimmed.is_empty() {
+                println!("No logbook entries in the last {} day{}", days, if days == 1 { "" } else { "s" });
+            } else {
+                for line in trimmed.lines() {
+                    let parts: Vec<&str> = line.split('|').collect();
+                    if parts.len() >= 1 {
+                        let name = parts[0];
+                        if parts.len() >= 2 && !parts[1].is_empty() {
+                            println!("  {} [{}]", name, parts[1]);
+                        } else {
+                            println!("  {}", name);
+                        }
+                    }
+                }
+            }
+        }
+        Err(error) => {
+            eprintln!("Error fetching logbook: {}", error);
             std::process::exit(1);
         }
     }
