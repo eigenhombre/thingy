@@ -100,7 +100,7 @@ command-line tool](https://github.com/eigenhombre/trish).
 - **Enter** - View todo notes (press Enter/Esc/q to return)
 - **+** - Add new todo
 - **L** - Log completed items to Logbook
-- **r** - Refresh from Things3
+- **r/g** - Refresh from Things3
 - **Ctrl-L** - Clear screen and redraw
 - **q/Esc** - Exit
 

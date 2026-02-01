@@ -542,7 +542,7 @@ pub fn interactive_mode() {
                         }
                     }
                 }
-                (KeyCode::Char('r'), _) => {
+                (KeyCode::Char('r'), _) | (KeyCode::Char('g'), _) => {
                     match fetch_all_todos() {
                         Ok(new_todos) => {
                             todos = new_todos;
