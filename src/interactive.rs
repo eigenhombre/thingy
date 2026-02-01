@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use crossterm::{
     cursor,
-    event::{self, Event, KeyCode, KeyEvent},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     terminal, ExecutableCommand,
 };
 
@@ -486,33 +486,36 @@ pub fn interactive_mode() {
     loop {
         if let Ok(Event::Key(KeyEvent {
             code,
-            modifiers: _,
+            modifiers,
             kind: _,
             state: _,
         })) = event::read()
         {
-            match code {
-                KeyCode::Char('q') | KeyCode::Esc => {
+            match (code, modifiers) {
+                (KeyCode::Char('q'), _) | (KeyCode::Esc, _) => {
                     break;
                 }
-                KeyCode::Enter => {
+                (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
+                    displayed_count = clear_and_redraw_all_todos(&todos, selected_idx);
+                }
+                (KeyCode::Enter, _) => {
                     let todo = &todos[selected_idx];
                     show_notes_view(todo, displayed_count);
                     displayed_count = clear_and_redraw_all_todos(&todos, selected_idx);
                 }
-                KeyCode::Up | KeyCode::Char('k') => {
+                (KeyCode::Up, _) | (KeyCode::Char('k'), _) => {
                     if selected_idx > 0 {
                         selected_idx -= 1;
                         redraw_list(&todos, selected_idx, displayed_count);
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
+                (KeyCode::Down, _) | (KeyCode::Char('j'), _) => {
                     if selected_idx < todos.len() - 1 {
                         selected_idx += 1;
                         redraw_list(&todos, selected_idx, displayed_count);
                     }
                 }
-                KeyCode::Char(' ') | KeyCode::Char('x') => {
+                (KeyCode::Char(' '), _) | (KeyCode::Char('x'), _) => {
                     let todo = &todos[selected_idx];
                     let was_completed = todo.is_completed;
                     if let Err(e) = toggle_todo_completion(todo) {
@@ -527,7 +530,7 @@ pub fn interactive_mode() {
 
                     redraw_list(&todos, selected_idx, displayed_count);
                 }
-                KeyCode::Char('/') => {
+                (KeyCode::Char('/'), _) => {
                     let todo = &todos[selected_idx];
                     match toggle_inprogress_tag(todo) {
                         Ok(new_tags) => {
@@ -539,7 +542,7 @@ pub fn interactive_mode() {
                         }
                     }
                 }
-                KeyCode::Char('r') => {
+                (KeyCode::Char('r'), _) => {
                     match fetch_all_todos() {
                         Ok(new_todos) => {
                             todos = new_todos;
@@ -560,10 +563,10 @@ pub fn interactive_mode() {
                         }
                     }
                 }
-                KeyCode::Char('L') => {
+                (KeyCode::Char('L'), _) => {
                     log_completed_and_refresh(&mut todos, &mut selected_idx, &mut displayed_count);
                 }
-                KeyCode::Char('X') => {
+                (KeyCode::Char('X'), _) => {
                     let todo = &todos[selected_idx];
                     let was_completed = todo.is_completed;
 
@@ -580,7 +583,7 @@ pub fn interactive_mode() {
                         redraw_list(&todos, selected_idx, displayed_count);
                     }
                 }
-                KeyCode::Char('+') => {
+                (KeyCode::Char('+'), _) => {
                     match add_new_todo(&todos, displayed_count) {
                         Ok(Some(_)) => {
                             match fetch_all_todos() {

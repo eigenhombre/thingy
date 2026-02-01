@@ -94,10 +94,13 @@ command-line tool](https://github.com/eigenhombre/trish).
 
 - **↑/↓** or **k/j** - Navigate between todos
 - **Space/x** - Toggle completion status
+- **X** - Mark complete and log to Logbook
 - **/** - Toggle in-progress tag
+- **Enter** - View todo notes (press Enter/Esc/q to return)
 - **+** - Add new todo
 - **L** - Log completed items to Logbook
 - **r** - Refresh from Things3
+- **Ctrl-L** - Clear screen and redraw
 - **q/Esc** - Exit
 
 ## Development
