@@ -45,6 +45,7 @@ To install to a different location, set the `BINDIR` environment variable:
       show [list] <id>      Show notes for a todo by identifier
       view [list] <id>      Alias for show
       log [days]            Show logbook entries (defaults to 1 day)
+      soonest               Show the todo with the shortest time tag
       interactive           Interactive mode with keyboard navigation
       i                     Alias for interactive
 

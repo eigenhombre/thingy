@@ -30,6 +30,7 @@ pub fn show_help() {
     eprintln!("  show [list] <id>      Show notes for a todo by identifier");
     eprintln!("  view [list] <id>      Alias for show");
     eprintln!("  log [days]            Show logbook entries (defaults to 1 day)");
+    eprintln!("  soonest               Show the todo with the shortest time tag");
     eprintln!("  interactive           Interactive mode with keyboard navigation");
     eprintln!("  i                     Alias for interactive");
 }
@@ -533,12 +534,7 @@ pub fn show_inprog() {
     } else {
         println!("In-progress todos:");
         for todo in inprog_todos {
-            let todo_text = if !todo.tags.is_empty() {
-                format!("{} [{}]", todo.name, todo.tags)
-            } else {
-                todo.name.clone()
-            };
-            println!(" {} {}", todo.identifier, todo_text);
+            print_todo_line(todo);
         }
     }
 }
@@ -551,12 +547,7 @@ pub fn show_completed() {
     } else {
         println!("Completed today:");
         for todo in todos {
-            let todo_text = if !todo.tags.is_empty() {
-                format!("{} [{}]", todo.name, todo.tags)
-            } else {
-                todo.name.clone()
-            };
-            println!(" {} {}", todo.identifier, todo_text);
+            print_todo_line(&todo);
         }
     }
 }
@@ -569,12 +560,7 @@ fn show_list(list_name: &str) {
     } else {
         println!("{} todos:", list_name);
         for todo in todos {
-            let todo_text = if !todo.tags.is_empty() {
-                format!("{} [{}]", todo.name, todo.tags)
-            } else {
-                todo.name.clone()
-            };
-            println!(" {} {}", todo.identifier, todo_text);
+            print_todo_line(&todo);
         }
     }
 }
@@ -732,7 +718,14 @@ end tell
         Ok(todos) => {
             let trimmed = todos.trim();
             if trimmed.is_empty() {
-                println!("No on-deck todos");
+                // No on-deck todos found, fall back to showing the top item:
+                let todos = fetch_todos_for_list("Today");
+                if todos.is_empty() {
+                    println!("No todos in Today list");
+                } else {
+                    let first = &todos[0];
+                    println!("{}", todo_display_text(first));
+                }
             } else {
                 for todo in trimmed.lines() {
                     println!("{}", todo);
@@ -747,43 +740,21 @@ end tell
 }
 
 pub fn rand_todo() {
-    let count_script = format!(
-        r#"
-tell application "Things3"
-    set listToQuery to list "Today"
-    {}
-    return count of listTodos
-end tell
-"#,
-        FILTER_COMPLETED
-    );
+    let todos = fetch_todos_for_list("Today");
 
-    let count: usize = match run_applescript(&count_script) {
-        Ok(count_str) => match count_str.trim().parse() {
-            Ok(n) => n,
-            Err(_) => {
-                eprintln!("Error parsing todo count");
-                std::process::exit(1);
-            }
-        },
-        Err(error) => {
-            eprintln!("Error counting todos: {}", error);
-            std::process::exit(1);
-        }
-    };
-
-    if count == 0 {
+    if todos.is_empty() {
         println!("No todos in Today list");
         std::process::exit(0);
     }
 
     let mut rng = rand::thread_rng();
-    let random_num = rng.gen_range(1..=count);
+    let random_idx = rng.gen_range(0..todos.len());
+    let selected_todo = &todos[random_idx];
 
-    let todo_name = mark_todo_inprogress("Today", random_num);
+    let todo_name = mark_todo_inprogress("Today", selected_todo.index);
 
     println!("You are working on:\n");
-    println!("    {}\n", todo_name.trim());
+    println!("    [{}] {}\n", selected_todo.identifier, todo_name.trim());
     println!("Either:\n");
     println!("- do it now");
     println!("- spend five minutes on it and schedule it later");
@@ -841,6 +812,83 @@ pub fn show_todo_notes(args: &[String]) {
             eprintln!("Error fetching notes: {}", error);
             std::process::exit(1);
         }
+    }
+}
+
+fn todo_display_text(todo: &Todo) -> String {
+    if !todo.tags.is_empty() {
+        format!("{} [{}]", todo.name, todo.tags)
+    } else {
+        todo.name.clone()
+    }
+}
+
+fn print_todo_line(todo: &Todo) {
+    println!(" {} {}", todo.identifier, todo_display_text(todo));
+}
+
+fn parse_time_seconds(s: &str) -> Option<u64> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+    let num_end = s.find(|c: char| !c.is_ascii_digit())?;
+    if num_end == 0 {
+        return None;
+    }
+    let num: u64 = s[..num_end].parse().ok()?;
+    let unit = s[num_end..].trim().to_lowercase();
+    match unit.as_str() {
+        "s" | "sec" | "secs" | "second" | "seconds" => Some(num),
+        "m" | "min" | "mins" | "minute" | "minutes" => Some(num * 60),
+        "h" | "hr" | "hrs" | "hour" | "hours" => Some(num * 3600),
+        "d" | "day" | "days" => Some(num * 86400),
+        _ => None,
+    }
+}
+
+fn todo_time_secs(todo: &Todo) -> Option<u64> {
+    if todo.tags.is_empty() {
+        return None;
+    }
+    for tag in todo.tags.split(',') {
+        if let Some(secs) = parse_time_seconds(tag.trim()) {
+            return Some(secs);
+        }
+    }
+    None
+}
+
+pub fn soonest_todo() {
+    let todos = fetch_todos_for_list("Today");
+
+    if todos.is_empty() {
+        println!("No todos in Today list");
+        return;
+    }
+
+    let untagged: Vec<&Todo> = todos.iter()
+        .filter(|t| todo_time_secs(t).is_none())
+        .collect();
+
+    if !untagged.is_empty() {
+        for todo in &untagged {
+            print_todo_line(todo);
+        }
+        return;
+    }
+
+    // All todos have time tags - find the soonest:
+    let mut tagged: Vec<(&Todo, u64)> = todos.iter()
+        .filter_map(|t| todo_time_secs(t).map(|secs| (t, secs)))
+        .collect();
+
+    tagged.sort_by(|a, b| {
+        a.1.cmp(&b.1).then(a.0.name.len().cmp(&b.0.name.len()))
+    });
+
+    if let Some((todo, _)) = tagged.first() {
+        print_todo_line(todo);
     }
 }
 
