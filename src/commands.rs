@@ -30,6 +30,7 @@ pub fn show_help() {
     eprintln!("  show [list] <id>      Show notes for a todo by identifier");
     eprintln!("  view [list] <id>      Alias for show");
     eprintln!("  log [days]            Show logbook entries (defaults to 1 day)");
+    eprintln!("  untagged              Show all untagged todos");
     eprintln!("  soonest               Show the todo with the shortest time tag");
     eprintln!("  interactive           Interactive mode with keyboard navigation");
     eprintln!("  i                     Alias for interactive");
@@ -857,6 +858,21 @@ fn todo_time_secs(todo: &Todo) -> Option<u64> {
         }
     }
     None
+}
+
+pub fn show_untagged() {
+    let todos = fetch_todos_for_list("Today");
+    let untagged: Vec<&Todo> = todos.iter()
+        .filter(|t| t.tags.is_empty())
+        .collect();
+
+    if untagged.is_empty() {
+        println!("No untagged todos");
+    } else {
+        for todo in untagged {
+            print_todo_line(todo);
+        }
+    }
 }
 
 pub fn soonest_todo() {
