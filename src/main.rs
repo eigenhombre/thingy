@@ -35,6 +35,7 @@ fn main() {
         "next" | "ondeck" => next_todo(&args[1..]),
         "show" | "view" => show_todo_notes(&args[1..]),
         "log" => show_log(&args[1..]),
+        "defer" => defer_todo(&args[1..]),
         "untagged" => show_untagged(),
         "soonest" => soonest_todo(),
         "i" | "interactive" => interactive_mode(),

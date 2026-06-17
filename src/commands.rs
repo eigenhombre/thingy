@@ -30,6 +30,7 @@ pub fn show_help() {
     eprintln!("  show [list] <id>      Show notes for a todo by identifier");
     eprintln!("  view [list] <id>      Alias for show");
     eprintln!("  log [days]            Show logbook entries (defaults to 1 day)");
+    eprintln!("  defer <id>            Defer todo from today to tomorrow");
     eprintln!("  untagged              Show all untagged todos");
     eprintln!("  soonest               Show the todo with the shortest time tag");
     eprintln!("  interactive           Interactive mode with keyboard navigation");
@@ -88,6 +89,25 @@ end tell
     }
 }
 
+fn resolve_id(todos: &[Todo], id_str: &str, list_name: &str) -> usize {
+    if let Ok(n) = id_str.parse::<usize>() {
+        if n > 0 {
+            return n;
+        }
+    }
+
+    let id_upper = id_str.to_uppercase();
+    for todo in todos {
+        if todo.identifier == id_upper {
+            return todo.index;
+        }
+    }
+
+    eprintln!("Error: No todo found with identifier or number '{}'", id_str);
+    eprintln!("Use 'thingy {}' to see available todos", list_name.to_lowercase());
+    std::process::exit(1);
+}
+
 fn parse_list_and_identifier(args: &[String], todos: &[Todo]) -> (&'static str, usize) {
     if args.is_empty() {
         eprintln!("Error: Missing todo identifier or number");
@@ -108,22 +128,7 @@ fn parse_list_and_identifier(args: &[String], todos: &[Todo]) -> (&'static str, 
         }
     };
 
-    if let Ok(n) = id_str.parse::<usize>() {
-        if n > 0 {
-            return (list_name, n);
-        }
-    }
-
-    let id_upper = id_str.to_uppercase();
-    for todo in todos {
-        if todo.identifier == id_upper {
-            return (list_name, todo.index);
-        }
-    }
-
-    eprintln!("Error: No todo found with identifier or number '{}'", id_str);
-    eprintln!("Use 'thingy {}' to see available todos", list_name.to_lowercase());
-    std::process::exit(1);
+    (list_name, resolve_id(todos, id_str, list_name))
 }
 
 fn fetch_todos_for_list(list_name: &str) -> Vec<Todo> {
@@ -428,33 +433,7 @@ pub fn move_todo(args: &[String]) {
     };
 
     let todos = fetch_todos_for_list(from_list);
-
-    let num: usize = if let Ok(n) = id_str.parse::<usize>() {
-        if n > 0 {
-            n
-        } else {
-            eprintln!("Error: Invalid todo number '{}'", id_str);
-            std::process::exit(1);
-        }
-    } else {
-        let id_upper = id_str.to_uppercase();
-        let mut found_index = None;
-        for todo in &todos {
-            if todo.identifier == id_upper {
-                found_index = Some(todo.index);
-                break;
-            }
-        }
-
-        match found_index {
-            Some(idx) => idx,
-            None => {
-                eprintln!("Error: No todo found with identifier or number '{}'", id_str);
-                eprintln!("Use 'thingy {}' to see available todos", from_list.to_lowercase());
-                std::process::exit(1);
-            }
-        }
-    };
+    let num = resolve_id(&todos, id_str, from_list);
 
     let script = format!(
         r#"
@@ -905,6 +884,38 @@ pub fn soonest_todo() {
 
     if let Some((todo, _)) = tagged.first() {
         print_todo_line(todo);
+    }
+}
+
+pub fn defer_todo(args: &[String]) {
+    let todos = fetch_todos_for_list("Today");
+    let (_, num) = parse_list_and_identifier(args, &todos);
+
+    let script = format!(
+        r#"
+tell application "Things3"
+    set listToQuery to list "Today"
+    {}
+    if (count of listTodos) < {} then
+        error "Todo number {} is out of range"
+    end if
+    set todoToDefer to item {} of listTodos
+    set todoName to name of todoToDefer
+    set schedule date of todoToDefer to (current date) + (1 * days)
+    return todoName
+end tell
+"#,
+        FILTER_COMPLETED, num, num, num
+    );
+
+    match run_applescript(&script) {
+        Ok(todo_name) => {
+            println!("Deferred to tomorrow: {}", todo_name.trim());
+        }
+        Err(error) => {
+            eprintln!("Error deferring todo: {}", error);
+            std::process::exit(1);
+        }
     }
 }
 

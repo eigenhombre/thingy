@@ -11,6 +11,10 @@ install: target/release/thingy
 	mkdir -p $(BINDIR)
 	cp target/release/thingy $(BINDIR)/thingy
 
+.PHONY: test
+test:
+	cargo test
+
 .PHONY: clean
 clean:
 	cargo clean
