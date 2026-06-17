@@ -994,3 +994,75 @@ end tell
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_todo(name: &str, identifier: &str, index: usize) -> Todo {
+        Todo {
+            name: name.to_string(),
+            tags: String::new(),
+            is_completed: false,
+            index,
+            identifier: identifier.to_string(),
+        }
+    }
+
+    #[test]
+    fn test_resolve_id_numeric() {
+        let todos = vec![make_todo("Buy milk", "BUY", 1)];
+        assert_eq!(resolve_id(&todos, "3", "Today"), 3);
+    }
+
+    #[test]
+    fn test_resolve_id_by_identifier() {
+        let todos = vec![
+            make_todo("Buy milk", "BUY", 1),
+            make_todo("Call mom", "CAL", 2),
+        ];
+        assert_eq!(resolve_id(&todos, "CAL", "Today"), 2);
+    }
+
+    #[test]
+    fn test_resolve_id_case_insensitive() {
+        let todos = vec![make_todo("Buy milk", "BUY", 1)];
+        assert_eq!(resolve_id(&todos, "buy", "Today"), 1);
+    }
+
+    #[test]
+    fn test_parse_time_seconds_minutes() {
+        assert_eq!(parse_time_seconds("5m"), Some(300));
+        assert_eq!(parse_time_seconds("2min"), Some(120));
+        assert_eq!(parse_time_seconds("1minute"), Some(60));
+        assert_eq!(parse_time_seconds("3minutes"), Some(180));
+    }
+
+    #[test]
+    fn test_parse_time_seconds_hours() {
+        assert_eq!(parse_time_seconds("1h"), Some(3600));
+        assert_eq!(parse_time_seconds("2hr"), Some(7200));
+        assert_eq!(parse_time_seconds("3hours"), Some(10800));
+    }
+
+    #[test]
+    fn test_parse_time_seconds_days() {
+        assert_eq!(parse_time_seconds("1d"), Some(86400));
+        assert_eq!(parse_time_seconds("2days"), Some(172800));
+    }
+
+    #[test]
+    fn test_parse_time_seconds_seconds() {
+        assert_eq!(parse_time_seconds("30s"), Some(30));
+        assert_eq!(parse_time_seconds("10sec"), Some(10));
+        assert_eq!(parse_time_seconds("60seconds"), Some(60));
+    }
+
+    #[test]
+    fn test_parse_time_seconds_invalid() {
+        assert_eq!(parse_time_seconds(""), None);
+        assert_eq!(parse_time_seconds("abc"), None);
+        assert_eq!(parse_time_seconds("5x"), None);
+        assert_eq!(parse_time_seconds("  "), None);
+    }
+}
