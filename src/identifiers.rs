@@ -168,9 +168,9 @@ mod tests {
 
         assign_identifiers(&mut todos);
 
-        assert_eq!(todos[0].identifier, "#!/");
+        assert_eq!(todos[0].identifier, "BIN");
         assert_eq!(todos[1].identifier, "CAL");
-        assert_eq!(todos[2].identifier, "@ME");
+        assert_eq!(todos[2].identifier, "MEN");
     }
 
     #[test]

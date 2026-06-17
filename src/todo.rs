@@ -11,7 +11,7 @@ impl Todo {
     pub fn generate_base_identifier(name: &str) -> String {
         let chars: Vec<char> = name
             .chars()
-            .filter(|c| !c.is_whitespace())
+            .filter(|c| c.is_alphanumeric())
             .take(3)
             .map(|c| c.to_uppercase().next().unwrap_or('_'))
             .collect();
