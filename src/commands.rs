@@ -901,7 +901,7 @@ tell application "Things3"
     end if
     set todoToDefer to item {} of listTodos
     set todoName to name of todoToDefer
-    set schedule date of todoToDefer to (current date) + (1 * days)
+    schedule todoToDefer for (current date) + (1 * days)
     return todoName
 end tell
 "#,
